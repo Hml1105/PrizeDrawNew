@@ -1,11 +1,11 @@
 // 奖品配置
 const prizes = [
-    { id: 1, name: "保温杯", icon: "🏆", weight: 1 },
-    { id: 2, name: "棒棒糖", icon: "🍭", weight: 30 },
-    { id: 3, name: "普通钥匙扣", icon: "🔑", weight: 20 },
-    { id: 4, name: "定制钥匙扣", icon: "🔐", weight: 20 },
-    { id: 5, name: "薯片", icon: "🥔", weight: 20 },
-    { id: 6, name: "学习资料", icon: "📚", weight: 10 }
+    { id: 1, name: "保温杯", icon: "🏆", initialQuantity: 1, weight: 1 },
+    { id: 2, name: "棒棒糖", icon: "🍭", initialQuantity: 130, weight: 30 },
+    { id: 3, name: "普通钥匙扣", icon: "🔑", initialQuantity: 50, weight: 20 },
+    { id: 4, name: "定制钥匙扣", icon: "🔐", initialQuantity: 50, weight: 20 },
+    { id: 5, name: "薯片", icon: "🥔", initialQuantity: 50, weight: 20 },
+    { id: 6, name: "学习资料", icon: "📚", initialQuantity: Infinity, weight: 10 }
 ];
 
 // 抽奖状态
@@ -16,9 +16,103 @@ let lotteryState = {
     wonPrizes: []
 };
 
+// 奖品库存管理
+const prizeManager = {
+    // 初始化奖品库存
+    initializePrizes: function() {
+        if (!localStorage.getItem('prizeInventory')) {
+            const inventory = {};
+            prizes.forEach(prize => {
+                inventory[prize.id] = {
+                    name: prize.name,
+                    icon: prize.icon,
+                    quantity: prize.initialQuantity,
+                    initialQuantity: prize.initialQuantity
+                };
+            });
+            localStorage.setItem('prizeInventory', JSON.stringify(inventory));
+        }
+    },
+    
+    // 获取奖品库存
+    getInventory: function() {
+        return JSON.parse(localStorage.getItem('prizeInventory') || '{}');
+    },
+    
+    // 更新奖品库存
+    updateInventory: function(prizeId, newQuantity) {
+        const inventory = this.getInventory();
+        if (inventory[prizeId]) {
+            inventory[prizeId].quantity = newQuantity;
+            localStorage.setItem('prizeInventory', JSON.stringify(inventory));
+        }
+    },
+    
+    // 减少奖品数量
+    decreasePrize: function(prizeId) {
+        const inventory = this.getInventory();
+        if (inventory[prizeId] && inventory[prizeId].quantity > 0) {
+            inventory[prizeId].quantity--;
+            localStorage.setItem('prizeInventory', JSON.stringify(inventory));
+            return true;
+        }
+        return false;
+    },
+    
+    // 获取可用奖品列表（有库存的）
+    getAvailablePrizes: function() {
+        const inventory = this.getInventory();
+        return prizes.filter(prize => {
+            const prizeInfo = inventory[prize.id];
+            return prizeInfo && (prizeInfo.quantity > 0 || prize.initialQuantity === Infinity);
+        });
+    },
+    
+    // 重置奖品库存（管理员功能）
+    resetInventory: function() {
+        localStorage.removeItem('prizeInventory');
+        this.initializePrizes();
+        alert('奖品库存已重置！');
+        this.updatePrizesDisplay();
+    },
+    
+    // 更新奖品显示
+    updatePrizesDisplay: function() {
+        const inventory = this.getInventory();
+        const prizesGrid = document.getElementById('prizesGrid');
+        
+        if (prizesGrid) {
+            prizesGrid.innerHTML = '';
+            
+            prizes.forEach(prize => {
+                const prizeInfo = inventory[prize.id];
+                const prizeCard = document.createElement('div');
+                prizeCard.className = 'prize-card';
+                
+                let quantityText = '';
+                if (prize.initialQuantity === Infinity) {
+                    quantityText = '数量: 不限量';
+                } else {
+                    const remaining = prizeInfo ? prizeInfo.quantity : 0;
+                    quantityText = `数量: ${remaining}/${prize.initialQuantity}`;
+                }
+                
+                prizeCard.innerHTML = `
+                    <div class="prize-icon">${prize.icon}</div>
+                    <h4>${prize.name}</h4>
+                    <p>${quantityText}</p>
+                `;
+                
+                prizesGrid.appendChild(prizeCard);
+            });
+        }
+    }
+};
+
 // 初始化
 window.onload = function() {
-    loadInventory();
+    prizeManager.initializePrizes();
+    prizeManager.updatePrizesDisplay();
     
     // 检查URL参数中是否有管理员模式
     const urlParams = new URLSearchParams(window.location.search);
@@ -41,46 +135,6 @@ function setChances() {
     }
 }
 
-// 加载奖品库存
-async function loadInventory() {
-    try {
-        const response = await fetch('/.netlify/functions/inventory');
-        const inventory = await response.json();
-        updatePrizesDisplay(inventory);
-    } catch (error) {
-        console.error('加载库存失败:', error);
-    }
-}
-
-// 更新奖品显示
-function updatePrizesDisplay(inventory) {
-    const prizesGrid = document.getElementById('prizesGrid');
-    prizesGrid.innerHTML = '';
-    
-    prizes.forEach(prize => {
-        const prizeInfo = inventory[prize.id];
-        const prizeCard = document.createElement('div');
-        prizeCard.className = 'prize-card';
-        
-        let quantityText = '';
-        if (prize.id === 6) { // 学习资料
-            quantityText = '数量: 不限量';
-        } else {
-            const remaining = prizeInfo ? prizeInfo.quantity : 0;
-            const initial = prizeInfo ? prizeInfo.initialQuantity : 0;
-            quantityText = `数量: ${remaining}/${initial}`;
-        }
-        
-        prizeCard.innerHTML = `
-            <div class="prize-icon">${prize.icon}</div>
-            <h4>${prize.name}</h4>
-            <p>${quantityText}</p>
-        `;
-        
-        prizesGrid.appendChild(prizeCard);
-    });
-}
-
 // 抽奖函数
 async function spinWheel() {
     if (lotteryState.isSpinning) return;
@@ -89,69 +143,71 @@ async function spinWheel() {
         return;
     }
     
+    // 检查是否还有奖品可抽
+    const availablePrizes = prizeManager.getAvailablePrizes();
+    if (availablePrizes.length === 0) {
+        alert('所有奖品已被抽完，谢谢参与！');
+        return;
+    }
+    
     lotteryState.isSpinning = true;
     document.getElementById('spinBtn').disabled = true;
     
-    try {
-        // 随机选择奖品
-        const selectedPrize = selectRandomPrize();
+    // 随机选择奖品
+    const selectedPrize = selectRandomPrize();
+    
+    // 计算转盘停止位置
+    const prizeIndex = prizes.findIndex(p => p.id === selectedPrize.id);
+    const targetRotation = 360 * 5 + (prizeIndex * 60) + (Math.random() * 60);
+    
+    // 获取转盘元素
+    const wheel = document.getElementById('prizeWheel');
+    
+    // 重置转盘位置（无动画）
+    wheel.style.transition = 'none';
+    wheel.style.transform = `rotate(${lotteryState.currentRotation % 360}deg)`;
+    
+    // 强制重绘
+    wheel.offsetHeight;
+    
+    // 应用旋转动画
+    wheel.style.transition = 'transform 3s cubic-bezier(0.2, 0.8, 0.3, 1)';
+    wheel.style.transform = `rotate(${lotteryState.currentRotation + targetRotation}deg)`;
+    
+    // 更新当前旋转角度
+    lotteryState.currentRotation += targetRotation;
+    
+    // 等待动画完成
+    setTimeout(() => {
+        // 检查并减少库存（学习资料无限，不需要减少）
+        let prizeAwarded = selectedPrize;
+        let remaining = 0;
         
-        // 计算转盘停止位置
-        const prizeIndex = prizes.findIndex(p => p.id === selectedPrize.id);
-        const targetRotation = 360 * 5 + (prizeIndex * 60) + (Math.random() * 60);
-        
-        // 获取转盘元素
-        const wheel = document.getElementById('prizeWheel');
-        
-        // 重置转盘位置（无动画）
-        wheel.style.transition = 'none';
-        wheel.style.transform = `rotate(${lotteryState.currentRotation % 360}deg)`;
-        
-        // 强制重绘
-        wheel.offsetHeight;
-        
-        // 应用旋转动画
-        wheel.style.transition = 'transform 3s cubic-bezier(0.2, 0.8, 0.3, 1)';
-        wheel.style.transform = `rotate(${lotteryState.currentRotation + targetRotation}deg)`;
-        
-        // 更新当前旋转角度
-        lotteryState.currentRotation += targetRotation;
-        
-        // 等待动画完成
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        // 向服务器发送抽奖请求
-        const drawResponse = await fetch('/.netlify/functions/draw', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ prizeId: selectedPrize.id })
-        });
-        
-        const drawResult = await drawResponse.json();
-        
-        if (drawResult.success) {
-            // 抽奖成功
-            lotteryState.chances--;
-            document.getElementById('lotteryChances').textContent = lotteryState.chances;
-            
-            // 将抽中的奖品添加到列表
-            lotteryState.wonPrizes.push(drawResult.prize);
-            
-            // 显示抽奖结果
-            showLotteryResult(drawResult.prize, drawResult.remaining);
-            
-            // 更新库存显示
-            loadInventory();
-        } else {
-            // 抽奖失败（库存不足）
-            alert(drawResult.error || '抽奖失败，请重试');
+        if (selectedPrize.initialQuantity !== Infinity) {
+            const success = prizeManager.decreasePrize(selectedPrize.id);
+            if (!success) {
+                // 如果这个奖品刚好被抽完，选择学习资料作为安慰奖
+                prizeAwarded = prizes.find(prize => prize.id === 6);
+            } else {
+                // 获取剩余数量
+                const inventory = prizeManager.getInventory();
+                remaining = inventory[selectedPrize.id] ? inventory[selectedPrize.id].quantity : 0;
+            }
         }
-    } catch (error) {
-        console.error('抽奖失败:', error);
-        alert('抽奖失败，请检查网络连接');
-    } finally {
+        
+        // 抽奖成功
+        lotteryState.chances--;
+        document.getElementById('lotteryChances').textContent = lotteryState.chances;
+        
+        // 将抽中的奖品添加到列表
+        lotteryState.wonPrizes.push(prizeAwarded);
+        
+        // 显示抽奖结果
+        showLotteryResult(prizeAwarded, remaining);
+        
+        // 更新库存显示
+        prizeManager.updatePrizesDisplay();
+        
         lotteryState.isSpinning = false;
         document.getElementById('spinBtn').disabled = false;
         
@@ -160,27 +216,34 @@ async function spinWheel() {
             document.getElementById('spinBtn').textContent = '查看结果';
             document.getElementById('spinBtn').onclick = showLotteryResultScreen;
         }
-    }
+    }, 3000);
 }
 
 // 随机选择奖品（基于权重）
 function selectRandomPrize() {
+    const availablePrizes = prizeManager.getAvailablePrizes();
+    
+    if (availablePrizes.length === 0) {
+        // 如果没有可用奖品，默认返回学习资料
+        return prizes.find(prize => prize.id === 6);
+    }
+    
     // 计算总权重
-    const totalWeight = prizes.reduce((sum, prize) => sum + prize.weight, 0);
+    const totalWeight = availablePrizes.reduce((sum, prize) => sum + prize.weight, 0);
     
     // 生成随机数
     let random = Math.random() * totalWeight;
     
     // 根据权重选择奖品
-    for (const prize of prizes) {
+    for (const prize of availablePrizes) {
         random -= prize.weight;
         if (random <= 0) {
             return prize;
         }
     }
     
-    // 默认返回最后一个奖品（学习资料）
-    return prizes[prizes.length - 1];
+    // 默认返回最后一个可用奖品
+    return availablePrizes[availablePrizes.length - 1];
 }
 
 // 显示抽奖结果
@@ -275,6 +338,11 @@ function goBackToLottery() {
     
     // 启用次数输入
     document.getElementById('chancesInput').disabled = false;
+    
+    // 重置抽奖状态
+    lotteryState.chances = 0;
+    lotteryState.wonPrizes = [];
+    document.getElementById('lotteryChances').textContent = '0';
 }
 
 // 分享结果功能
@@ -317,50 +385,24 @@ function fallbackShare(message) {
 }
 
 // 管理员功能 - 重置库存
-async function resetInventory() {
-    if (!confirm('确定要重置所有奖品库存吗？')) return;
-    
-    try {
-        const response = await fetch('/.netlify/functions/reset', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ password: 'admin123' })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            alert('库存重置成功！');
-            loadInventory();
-        } else {
-            alert('重置失败: ' + result.error);
-        }
-    } catch (error) {
-        console.error('重置失败:', error);
-        alert('重置失败，请检查网络连接');
+function resetInventory() {
+    if (confirm('确定要重置所有奖品库存吗？')) {
+        prizeManager.resetInventory();
     }
 }
 
 // 管理员功能 - 查看库存
-async function showInventory() {
-    try {
-        const response = await fetch('/.netlify/functions/inventory');
-        const inventory = await response.json();
-        
-        let inventoryText = '当前库存:\n';
-        Object.values(inventory).forEach(prize => {
-            if (prize.initialQuantity === Infinity) {
-                inventoryText += `${prize.name}: 不限量\n`;
-            } else {
-                inventoryText += `${prize.name}: ${prize.quantity}/${prize.initialQuantity}\n`;
-            }
-        });
-        
-        alert(inventoryText);
-    } catch (error) {
-        console.error('获取库存失败:', error);
-        alert('获取库存失败');
-    }
+function showInventory() {
+    const inventory = prizeManager.getInventory();
+    
+    let inventoryText = '当前库存:\n';
+    Object.values(inventory).forEach(prize => {
+        if (prize.initialQuantity === Infinity) {
+            inventoryText += `${prize.name}: 不限量\n`;
+        } else {
+            inventoryText += `${prize.name}: ${prize.quantity}/${prize.initialQuantity}\n`;
+        }
+    });
+    
+    alert(inventoryText);
 }
