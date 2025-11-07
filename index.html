@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>幸运大抽奖 - 百团大战</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>幸运大抽奖</h1>
+            <p class="subtitle">百团大战专属抽奖活动</p>
+        </header>
+        
+        <div class="content">
+            <!-- 抽奖主屏幕 -->
+            <div id="lotteryScreen" class="lottery-screen">
+                <h2>幸运抽奖</h2>
+                <p class="lottery-subtitle">你还有 <span id="lotteryChances">0</span> 次抽奖机会</p>
+                
+                <div class="chances-input">
+                    <label for="chancesInput">请输入抽奖次数：</label>
+                    <input type="number" id="chancesInput" min="1" max="10" value="1">
+                    <button class="btn btn-small" onclick="setChances()">确定</button>
+                </div>
+                
+                <div class="lottery-container">
+                    <div class="prize-wheel" id="prizeWheel">
+                        <div class="wheel-center"></div>
+                        <div class="prize-item" style="transform: rotate(0deg);">
+                            <span>保温杯</span>
+                        </div>
+                        <div class="prize-item" style="transform: rotate(60deg);">
+                            <span>棒棒糖</span>
+                        </div>
+                        <div class="prize-item" style="transform: rotate(120deg);">
+                            <span>普通钥匙扣</span>
+                        </div>
+                        <div class="prize-item" style="transform: rotate(180deg);">
+                            <span>定制钥匙扣</span>
+                        </div>
+                        <div class="prize-item" style="transform: rotate(240deg);">
+                            <span>薯片</span>
+                        </div>
+                        <div class="prize-item" style="transform: rotate(300deg);">
+                            <span>学习资料</span>
+                        </div>
+                    </div>
+                    
+                    <button class="btn lottery-btn" id="spinBtn" onclick="spinWheel()">开始抽奖</button>
+                </div>
+                
+                <div class="prizes-list">
+                    <h3>奖品列表</h3>
+                    <div class="prizes-grid" id="prizesGrid">
+                        <!-- 动态生成奖品列表 -->
+                    </div>
+                </div>
+                
+                <!-- 管理员功能区 -->
+                <div class="admin-panel" id="adminPanel" style="display: none;">
+                    <h3>管理员功能</h3>
+                    <div class="admin-buttons">
+                        <button class="btn btn-warning" onclick="resetInventory()">重置奖品库存</button>
+                        <button class="btn btn-info" onclick="showInventory()">查看当前库存</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 抽奖结果弹窗 -->
+    <div id="lotteryResultModal" class="result-modal" style="display: none;">
+        <div class="result-content">
+            <div id="lotteryResultIcon" class="result-icon"></div>
+            <h2 id="lotteryResultTitle"></h2>
+            <div class="explanation" id="lotteryResultText"></div>
+            <button class="btn" id="lotteryNextBtn">确定</button>
+        </div>
+    </div>
+    
+    <!-- 抽奖结果展示屏幕 -->
+    <div id="lotteryResultScreen" class="lottery-result-screen" style="display: none;">
+        <h2>抽奖结果</h2>
+        <p class="result-subtitle">恭喜你获得了以下奖品！</p>
+        
+        <div class="result-container" id="resultContainer">
+            <!-- 动态生成抽奖结果 -->
+        </div>
+        
+        <div class="result-summary">
+            <p>你一共获得了 <span id="totalPrizes">0</span> 件奖品</p>
+        </div>
+        
+        <div class="result-buttons">
+            <button class="btn" onclick="goBackToLottery()">继续抽奖</button>
+            <button class="btn btn-secondary" onclick="shareResults()">分享结果</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
